@@ -4,6 +4,7 @@ import random
 import psutil
 import streamlit as st
 import pandas as pd
+import scipy.sparse as scipy_sparse
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
@@ -67,9 +68,24 @@ def vectorize_and_build_model(df: pd.DataFrame) -> tuple[NearestNeighbors, Tfidf
     :rtype: tuple
     """
     df['stemmed_synopsis'] = df['synopsis'].apply(lambda x: preprocess_text(x) if pd.notna(x) else '')
-    tfidf_vectorizer = TfidfVectorizer(stop_words='english', max_features=5000)
+    
+    # Convert the 'genres' column into one-hot encoded vectors
+    # This allows us to represent the genres as binary features, 
+    # which can be combined with the synopsis features.
+    # Adding these genre features helps the model consider both the content (synopsis)
+    # and categorical attributes (genres) for better recommendations.
+    genres_vectorized = pd.get_dummies(df['genres'])
+    
+    # Vectorize the synopsis using TF-IDF, considering unigrams and bigrams
+    # This transforms the text into numerical features while ignoring common stopwords.
+    # Using bigrams (two-word combinations) and increasing max features improves 
+    # the model's ability to capture context and relationships in the text.
+    tfidf_vectorizer = TfidfVectorizer(stop_words='english', max_features=10000, ngram_range=(1, 2))
     tfidf_matrix = tfidf_vectorizer.fit_transform(df['stemmed_synopsis'])
-    knn_model = NearestNeighbors(n_neighbors=5, metric='cosine').fit(tfidf_matrix)
+    
+    combined_features = scipy_sparse.hstack([tfidf_matrix, genres_vectorized])
+    knn_model = NearestNeighbors(n_neighbors=5, metric='cosine').fit(combined_features)
+    
     return knn_model, tfidf_vectorizer
 
 # Recommend anime using the k-NN model and TF-IDF vectorizer
