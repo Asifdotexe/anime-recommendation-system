@@ -83,7 +83,12 @@ def vectorize_and_build_model(df: pd.DataFrame) -> tuple[NearestNeighbors, Tfidf
     tfidf_vectorizer = TfidfVectorizer(stop_words='english', max_features=10000, ngram_range=(1, 2))
     tfidf_matrix = tfidf_vectorizer.fit_transform(df['stemmed_synopsis'])
     
+    # Combine the TF-IDF matrix of synopsis with the one-hot encoded genres
+    # This merges the text-based features (synopsis) with categorical features (genres) into a single feature matrix.
+    # The model now uses both textual content and genre information to make more accurate recommendations.
     combined_features = scipy_sparse.hstack([tfidf_matrix, genres_vectorized])
+    #  [TF-IDF matrix (synopsis)] + [One-hot encoded genres] --> [Combined feature matrix]
+    #        (Text features)            (Genre features)            (Used for model training)
     knn_model = NearestNeighbors(n_neighbors=5, metric='cosine').fit(combined_features)
     
     return knn_model, tfidf_vectorizer
